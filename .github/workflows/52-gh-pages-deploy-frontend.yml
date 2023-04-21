@@ -1,10 +1,7 @@
-name: "38-gh-pages-deploy-frontend — Deploy to GitHub Pages"
+name: "52-gh-pages-deploy-storybook"
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
-  pull_request:
     branches:
       - main
 
@@ -14,12 +11,18 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+    # The redundant checkout is to establish a git repo 
+    # so that JamesIves/github-pages-deploy-action@v4 works properly
+    - name: Checkout local code to establish repo
+      uses: actions/checkout@v2
+   
+    # This is so we have access to the source repo
     - name: Checkout local code
       uses: actions/checkout@v2
       with:
          path: 'this_repo'
     
-    - name: Debug Env Variables
+    - name: Set Env Variables
       run: |
         THIS_REPO="${{github.repository}}"
         SOURCE_REPO="${THIS_REPO/-docs/}"
@@ -28,12 +31,18 @@ jobs:
         echo "THIS_REPO=${THIS_REPO}"
         echo "SOURCE_REPO=${SOURCE_REPO}"
         echo "SOURCE_REPO=${SOURCE_REPO}" >> $GITHUB_ENV
-    
+      
     - name: Checkout code
       uses: actions/checkout@v2
       with:
         repository: ${{ env.SOURCE_REPO }}
-    
+        path: 'source_repo'
+
+    # - name: list files for debugging
+    #   run: |
+    #     pwd
+    #     ls -lRt
+
     - name: Install Node.js
       uses: actions/setup-node@v1
       with:
@@ -41,15 +50,26 @@ jobs:
     
     - name: Install NPM packages
       run: npm ci
-      working-directory: frontend
+      working-directory: source_repo/frontend
 
     - name: Build Storybook
-      working-directory: frontend
+      working-directory: source_repo/frontend
       run: | # Install npm packages and build the Storybook files
         npx build-storybook --docs
-        
+
+    # - name: list files for debugging
+    #   run: |
+    #     pwd
+    #     ls -lRt
+
+    - name: compose web site
+      run: |
+        mkdir site
+        cp -r source_repo/frontend/storybook-static site
+        cp this_repo/index.md site
+
     - name: Deploy 🚀
       uses: JamesIves/github-pages-deploy-action@v4
       with:
-        folder: frontend/storybook-static # The folder the action should deploy.
+        folder: site # The folder the action should deploy.
         branch: gh-pages
